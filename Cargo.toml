@@ -1,0 +1,17 @@
+[package]
+name = "pdf-rs"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+gtk = { version = "0.9.7", package = "gtk4", features = ["v4_6"] }
+lalrpop-util = { version = "0.22.2", features = [
+    "lexer",
+    "unicode",
+] }
+
+[build-dependencies]
+lalrpop = { version = "0.22.2", features = [
+    "lexer",
+    "unicode",
+] }

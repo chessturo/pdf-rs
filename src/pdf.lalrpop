@@ -1,0 +1,18 @@
+grammar<'input>(input: &'input [u8]);
+
+use crate::lexer::*;
+use crate::parser_helper::*;
+
+pub RawPdfStr: Vec<u8> = RawStrDelimOpen <RawStrContent?> RawStrDelimClose =>
+    handle_raw_str_escapes(<>.unwrap_or(&[]));
+
+extern {
+    type Location = usize;
+    type Error = PdfLexError;
+
+    enum Tok<'input> {
+        RawStrDelimOpen => Tok::RawStrDelimOpen,
+        RawStrDelimClose => Tok::RawStrDelimClose,
+        RawStrContent => Tok::RawStrContent(<&'input [u8]>),
+    }
+}
