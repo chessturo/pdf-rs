@@ -66,30 +66,59 @@ impl<'input> Iterator for PdfLexer<'input> {
         let mut mode = self.mode.borrow_mut();
         match *mode {
             PdfLexerMode::Base => {
-                match self.chars.next() {
-                    // EOF
-                    None => return None,
+                'base: loop {
+                    match self.chars.next() {
+                        // EOF
+                        None => return None,
 
-                    // We're starting a raw string, switch to its mode.
-                    Some((i, b'(')) => {
-                        *mode = PdfLexerMode::RawString;
-                        return Some(Ok((i, Tok::RawStrDelimOpen, i + 1)));
-                    }
-                    Some((i, b')')) => {
-                        return Some(Ok((i, Tok::RawStrDelimClose, i + 1)));
-                    }
+                        // We're starting a raw string, switch to its mode.
+                        Some((i, b'(')) => {
+                            *mode = PdfLexerMode::RawString;
+                            return Some(Ok((i, Tok::RawStrDelimOpen, i + 1)));
+                        }
+                        Some((i, b')')) => {
+                            return Some(Ok((i, Tok::RawStrDelimClose, i + 1)));
+                        }
 
-                    // We're starting a hex string, switch to its mode
-                    Some((i, b'<')) => {
-                        *mode = PdfLexerMode::HexString;
-                        return Some(Ok((i, Tok::HexStrDelimOpen, i + 1)));
-                    }
-                    Some((i, b'>')) => {
-                        return Some(Ok((i, Tok::HexStrDelimClose, i + 1)));
-                    }
+                        // We're starting a hex string, switch to its mode
+                        Some((i, b'<')) => {
+                            *mode = PdfLexerMode::HexString;
+                            return Some(Ok((i, Tok::HexStrDelimOpen, i + 1)));
+                        }
+                        Some((i, b'>')) => {
+                            return Some(Ok((i, Tok::HexStrDelimClose, i + 1)));
+                        }
 
-                    // Catch-all error case
-                    Some((i, _)) => return Some(Err(PdfLexError::UnexpectedChar(i))),
+                        // Comment, consume all characters until an EOL marker
+                        Some((_, b'%')) => {
+                            loop {
+                                match self.chars.next() {
+                                    None => return None,
+                                    Some((_, b'\r')) => {
+                                        if let Some((_, b'\n')) = self.chars.peek() {
+                                            self.chars.next();
+                                        }
+                                        continue 'base;
+                                    }
+                                    Some((_, b'\n')) => {
+                                        continue 'base;
+                                    }
+                                    Some(_) => {}
+                                }
+                            }
+                        }
+
+                        // Skip whitespace in base mode
+                        Some((_, b'\x00'))
+                        | Some((_, b'\t'))
+                        | Some((_, b'\n'))
+                        | Some((_, b'\x0C' /* FORM FEED */))
+                        | Some((_, b'\r'))
+                        | Some((_, b' ')) => continue,
+
+                        // Catch-all error case
+                        Some((i, _)) => return Some(Err(PdfLexError::UnexpectedChar(i))),
+                    }
                 }
             }
 
