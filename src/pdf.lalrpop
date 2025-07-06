@@ -6,7 +6,9 @@ use crate::parser_helper::*;
 pub RawPdfStr: Vec<u8> = RawStrDelimOpen <RawStrContent?> RawStrDelimClose =>
     handle_raw_str_escapes(<>.unwrap_or(&[]));
 
-pub HexPdfStr: Vec<u8> = "<" <HexStrContent?> ">" => handle_hex_str(<>.unwrap_or(&[]));
+// TODO: Don't `.unwrap()` if there's invalid hex characters
+pub HexPdfStr: Vec<u8> = "<" <HexStrContent?> ">" => handle_hex_str(<>.unwrap_or(&[])).unwrap();
+pub Name: Vec<u8> = NameTok => handle_name_escapes(<>).unwrap();
 
 extern {
     type Location = usize;
@@ -19,5 +21,6 @@ extern {
         "<" => Tok::HexStrDelimOpen,
         ">" => Tok::HexStrDelimClose,
         HexStrContent => Tok::HexStrContent(<&'input [u8]>),
+        NameTok => Tok::Name(<&'input [u8]>),
     }
 }

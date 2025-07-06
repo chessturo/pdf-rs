@@ -2,3 +2,4 @@
 //! being tested. So, tests for the parser live in this module.
 
 mod string;
+mod name;

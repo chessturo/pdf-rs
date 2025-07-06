@@ -125,24 +125,50 @@ pub(crate) fn handle_raw_str_escapes(val: &[u8]) -> Vec<u8> {
     }
 }
 
-pub(crate) fn handle_hex_str(val: &[u8]) -> Vec<u8> {
+/// Decodes the hex representation of the string content into the actual bytes.
+///
+/// Returns `None` if any of the characters are outside the range `b'0'..=b'9' | b'a'..=b'f' |
+/// b'A'..=b'F'`
+pub(crate) fn handle_hex_str(val: &[u8]) -> Option<Vec<u8>> {
     let mut it = val.iter();
     let mut out = Vec::with_capacity(val.len() / 2 + 1);
     loop {
-        let Some(digit1) = it.next() else { return out };
-        let Some(digit2) = it.next() else {
-            out.push(char_to_val(*digit1) * 16);
-            return out;
+        let Some(digit1) = it.next() else {
+            return Some(out);
         };
-        out.push(char_to_val(*digit1) * 16 + char_to_val(*digit2));
+        let Some(digit2) = it.next() else {
+            out.push(char_to_val(*digit1)? * 16);
+            return Some(out);
+        };
+        out.push(char_to_val(*digit1)? * 16 + char_to_val(*digit2)?);
     }
 }
 
-fn char_to_val(c: u8) -> u8 {
+fn char_to_val(c: u8) -> Option<u8> {
     match c {
-        b'0'..=b'9' => c - b'0',
-        b'a'..=b'f' => c - b'a' + 10,
-        b'A'..=b'F' => c - b'A' + 10,
-        _ => panic!("invalid hex character"),
+        b'0'..=b'9' => Some(c - b'0'),
+        b'a'..=b'f' => Some(c - b'a' + 10),
+        b'A'..=b'F' => Some(c - b'A' + 10),
+        _ => None,
+    }
+}
+
+pub(crate) fn handle_name_escapes(val: &[u8]) -> Option<Vec<u8>> {
+    let mut it = val.iter();
+    // Consume the leading b'/'
+    assert!(it.next() == Some(&b'/'));
+
+    let mut out = Vec::with_capacity(val.len());
+
+    loop {
+        match it.next() {
+            Some(b'#') => {
+                let d1 = char_to_val(*it.next()?)?;
+                let d2 = char_to_val(*it.next()?)?;
+                out.push(d1 * 16 + d2);
+            },
+            Some(c) => out.push(*c),
+            None => return Some(out),
+        }
     }
 }

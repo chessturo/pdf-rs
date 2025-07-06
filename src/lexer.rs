@@ -14,6 +14,8 @@ pub(crate) enum Tok<'input> {
     HexStrDelimOpen,
     HexStrDelimClose,
     HexStrContent(&'input [u8]),
+
+    Name(&'input [u8]),
 }
 
 pub(crate) enum PdfLexerMode {
@@ -87,6 +89,35 @@ impl<'input> Iterator for PdfLexer<'input> {
                         }
                         Some((i, b'>')) => {
                             return Some(Ok((i, Tok::HexStrDelimClose, i + 1)));
+                        }
+
+                        // Handle a name token
+                        Some((i, b'/')) => {
+                            loop {
+                                match self.chars.peek() {
+                                    // Names are ended by (non-NUL) whitespace
+                                    Some((j, b'\t'))
+                                    | Some((j, b'\n'))
+                                    | Some((j, b'\x0C' /* FORM FEED */))
+                                    | Some((j, b'\r'))
+                                    | Some((j, b' ')) => {
+                                        return Some(Ok((i, Tok::Name(&self.input[i..*j]), *j)));
+                                    }
+                                    // I suppose a name could be ended by EOF as well...
+                                    None => {
+                                        return Some(Ok((
+                                            i,
+                                            Tok::Name(&self.input[i..]),
+                                            self.input.len(),
+                                        )));
+                                    }
+                                    // The NUL character is disallowed in names
+                                    Some((j, b'\x00')) => {
+                                        return Some(Err(PdfLexError::UnexpectedChar(*j)));
+                                    }
+                                    Some((_, _)) => { self.chars.next(); },
+                                }
+                            }
                         }
 
                         // Comment, consume all characters until an EOL marker
