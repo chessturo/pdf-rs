@@ -491,4 +491,43 @@ mod hex {
             b"at sign: \x40".to_vec()
         );
     }
+
+    /// Tests that the examples given in section 7.3.4.3 of the PDF Spec are handled as described
+    /// there.
+    mod sec7343 {
+        use crate::lexer::PdfLexer;
+        use crate::pdf::HexPdfStrParser;
+
+        #[test]
+        fn example1() {
+            let inp = b"<4E6F762073686D6F7A206B6120706F702E>";
+            assert_eq!(
+                HexPdfStrParser::new()
+                    .parse(inp, PdfLexer::new(inp))
+                    .unwrap(),
+                // Apparently it's a reference:
+                // https://en.wikipedia.org/wiki/Gene_Ahern#Influence
+                b"Nov shmoz ka pop.".to_vec()
+            );
+        }
+
+        #[test]
+        fn example2() {
+            let inp = b"<901FA3>";
+            assert_eq!(
+                HexPdfStrParser::new()
+                    .parse(inp, PdfLexer::new(inp))
+                    .unwrap(),
+                b"\x90\x1F\xA3".to_vec()
+            );
+
+            let inp = b"<901FA>";
+            assert_eq!(
+                HexPdfStrParser::new()
+                    .parse(inp, PdfLexer::new(inp))
+                    .unwrap(),
+                b"\x90\x1F\xA0".to_vec()
+            );
+        }
+    }
 }
