@@ -16,6 +16,11 @@ pub(crate) enum Tok<'input> {
     HexStrContent(&'input [u8]),
 
     Name(&'input [u8]),
+
+    True,
+    False,
+
+    UnknownTok(&'input [u8]),
 }
 
 pub(crate) enum PdfLexerMode {
@@ -26,19 +31,28 @@ pub(crate) enum PdfLexerMode {
 }
 
 #[derive(Debug)]
-pub enum PdfLexError {
+pub enum PdfLexError<'input> {
     /// Represents a situation where a character is found (at position `usize`) that cannot be
     /// lexed into a token
     UnexpectedChar(usize),
     /// Represents a situation where we the file ends mid-token.
     UnexpectedEOF,
+    /// Represents a situation where the token we're lexing is (much) longer than it should be
+    TokenTooLong(&'input [u8]),
 }
 
-impl Display for PdfLexError {
+impl Display for PdfLexError<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             PdfLexError::UnexpectedChar(loc) => write!(f, "Unexpected character at byte {}", loc),
             PdfLexError::UnexpectedEOF => write!(f, "Unexpected end-of-file"),
+            PdfLexError::TokenTooLong(tok) => {
+                if let Ok(s) = str::from_utf8(tok) {
+                    write!(f, "Token `{s}...` is longer than it should be")
+                } else {
+                    write!(f, "Token too long")
+                }
+            }
         }
     }
 }
@@ -60,9 +74,12 @@ impl<'input> PdfLexer<'input> {
     }
 }
 
+// How many bytes to look for a keyword before giving up and issuing a lexer error
+static KEYWORD_LOOKAHEAD: usize = 30;
+
 pub(crate) type Spanned<Tok, Loc, Error> = Result<(Loc, Tok, Loc), Error>;
 impl<'input> Iterator for PdfLexer<'input> {
-    type Item = Spanned<Tok<'input>, usize, PdfLexError>;
+    type Item = Spanned<Tok<'input>, usize, PdfLexError<'input>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let mut mode = self.mode.borrow_mut();
@@ -147,8 +164,40 @@ impl<'input> Iterator for PdfLexer<'input> {
                         | Some((_, b'\r'))
                         | Some((_, b' ')) => continue,
 
-                        // Catch-all error case
-                        Some((i, _)) => return Some(Err(PdfLexError::UnexpectedChar(i))),
+                        // It's not some kind of delimiter, so look for a keyword
+                        Some((i, _)) => {
+                            let mut keyword_len = 1;
+                            loop {
+                                match self.chars.peek() {
+                                    // Whitespace or EOF separates tokens
+                                    None
+                                    | Some((_, b'\x00'))
+                                    | Some((_, b'\t'))
+                                    | Some((_, b'\n'))
+                                    | Some((_, b'\x0C' /* FORM FEED */))
+                                    | Some((_, b'\r'))
+                                    | Some((_, b' ')) => break,
+
+                                    Some((_, _)) => {
+                                        self.chars.next();
+                                        keyword_len += 1;
+                                        if keyword_len == KEYWORD_LOOKAHEAD {
+                                            return Some(Err(PdfLexError::TokenTooLong(
+                                                &self.input[i..(i + keyword_len)],
+                                            )));
+                                        }
+                                    }
+                                }
+                            }
+
+                            let tok = match &self.input[i..(i + keyword_len)] {
+                                b"true" => Tok::True,
+                                b"false" => Tok::False,
+                                _ => Tok::UnknownTok(&self.input[i..(i + keyword_len)]),
+                            };
+
+                            return Some(Ok((i, tok, i + keyword_len)));
+                        }
                     }
                 }
             }

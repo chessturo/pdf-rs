@@ -10,9 +10,14 @@ pub RawPdfStr: Vec<u8> = RawStrDelimOpen <RawStrContent?> RawStrDelimClose =>
 pub HexPdfStr: Vec<u8> = "<" <HexStrContent?> ">" => handle_hex_str(<>.unwrap_or(&[])).unwrap();
 pub Name: Vec<u8> = NameTok => handle_name_escapes(<>).unwrap();
 
+pub Boolean: bool = {
+    "true" => true,
+    "false" => false,
+}
+
 extern {
     type Location = usize;
-    type Error = PdfLexError;
+    type Error = PdfLexError<'input>;
 
     enum Tok<'input> {
         RawStrDelimOpen => Tok::RawStrDelimOpen,
@@ -24,5 +29,10 @@ extern {
         HexStrContent => Tok::HexStrContent(<&'input [u8]>),
 
         NameTok => Tok::Name(<&'input [u8]>),
+
+        "true" => Tok::True,
+        "false" => Tok::False,
+
+        UnknownTok => Tok::UnknownTok(<&'input [u8]>),
     }
 }
