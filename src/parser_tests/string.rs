@@ -427,3 +427,68 @@ are the same.)";
         }
     }
 }
+
+mod hex {
+    use crate::lexer::PdfLexer;
+    use crate::pdf::HexPdfStrParser;
+
+    #[test]
+    fn empty() {
+        let inp = b"<>";
+        assert_eq!(
+            HexPdfStrParser::new()
+                .parse(inp, PdfLexer::new(inp))
+                .unwrap(),
+            b"".to_vec()
+        );
+    }
+
+    #[test]
+    fn upper() {
+        let inp = b"<3A3B20486578203F3F5044463F3F20737472202A2B2C>";
+        assert_eq!(
+            HexPdfStrParser::new()
+                .parse(inp, PdfLexer::new(inp))
+                .unwrap(),
+            b":; Hex ??PDF?? str *+,".to_vec()
+        );
+    }
+
+    #[test]
+    fn lower() {
+        let inp = b"<3a3b20486578203f3f5044463f3f20737472202a2b2c>";
+        assert_eq!(
+            HexPdfStrParser::new()
+                .parse(inp, PdfLexer::new(inp))
+                .unwrap(),
+            b":; Hex ??PDF?? str *+,".to_vec()
+        );
+    }
+
+    #[test]
+    fn padding() {
+        let inp = b"<0>";
+        assert_eq!(
+            HexPdfStrParser::new()
+                .parse(inp, PdfLexer::new(inp))
+                .unwrap(),
+            b"\x00".to_vec()
+        );
+
+        let inp = b"<4>";
+        assert_eq!(
+            HexPdfStrParser::new()
+                .parse(inp, PdfLexer::new(inp))
+                .unwrap(),
+            b"\x40".to_vec()
+        );
+
+        let inp = b"<6174207369676E3A204>";
+        assert_eq!(
+            HexPdfStrParser::new()
+                .parse(inp, PdfLexer::new(inp))
+                .unwrap(),
+            b"at sign: \x40".to_vec()
+        );
+    }
+}

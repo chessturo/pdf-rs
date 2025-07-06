@@ -6,6 +6,8 @@ use crate::parser_helper::*;
 pub RawPdfStr: Vec<u8> = RawStrDelimOpen <RawStrContent?> RawStrDelimClose =>
     handle_raw_str_escapes(<>.unwrap_or(&[]));
 
+pub HexPdfStr: Vec<u8> = "<" <HexStrContent?> ">" => handle_hex_str(<>.unwrap_or(&[]));
+
 extern {
     type Location = usize;
     type Error = PdfLexError;
@@ -14,5 +16,8 @@ extern {
         RawStrDelimOpen => Tok::RawStrDelimOpen,
         RawStrDelimClose => Tok::RawStrDelimClose,
         RawStrContent => Tok::RawStrContent(<&'input [u8]>),
+        "<" => Tok::HexStrDelimOpen,
+        ">" => Tok::HexStrDelimClose,
+        HexStrContent => Tok::HexStrContent(<&'input [u8]>),
     }
 }

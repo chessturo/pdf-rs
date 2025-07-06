@@ -124,3 +124,25 @@ pub(crate) fn handle_raw_str_escapes(val: &[u8]) -> Vec<u8> {
         }
     }
 }
+
+pub(crate) fn handle_hex_str(val: &[u8]) -> Vec<u8> {
+    let mut it = val.iter();
+    let mut out = Vec::with_capacity(val.len() / 2 + 1);
+    loop {
+        let Some(digit1) = it.next() else { return out };
+        let Some(digit2) = it.next() else {
+            out.push(char_to_val(*digit1) * 16);
+            return out;
+        };
+        out.push(char_to_val(*digit1) * 16 + char_to_val(*digit2));
+    }
+}
+
+fn char_to_val(c: u8) -> u8 {
+    match c {
+        b'0'..=b'9' => c - b'0',
+        b'a'..=b'f' => c - b'a' + 10,
+        b'A'..=b'F' => c - b'A' + 10,
+        _ => panic!("invalid hex character"),
+    }
+}

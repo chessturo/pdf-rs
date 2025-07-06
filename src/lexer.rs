@@ -11,12 +11,16 @@ pub(crate) enum Tok<'input> {
     RawStrDelimOpen,
     RawStrDelimClose,
     RawStrContent(&'input [u8]),
+    HexStrDelimOpen,
+    HexStrDelimClose,
+    HexStrContent(&'input [u8]),
 }
 
 pub(crate) enum PdfLexerMode {
     /// The base mode; in the top-level structure of the PDF.
     Base,
     RawString,
+    HexString,
 }
 
 #[derive(Debug)]
@@ -75,6 +79,14 @@ impl<'input> Iterator for PdfLexer<'input> {
                         return Some(Ok((i, Tok::RawStrDelimClose, i + 1)));
                     }
 
+                    Some((i, b'<')) => {
+                        *mode = PdfLexerMode::HexString;
+                        return Some(Ok((i, Tok::HexStrDelimOpen, i + 1)));
+                    }
+                    Some((i, b'>')) => {
+                        return Some(Ok((i, Tok::HexStrDelimClose, i + 1)));
+                    }
+
                     // Catch-all error case
                     Some((i, _)) => return Some(Err(PdfLexError::UnexpectedChar(i))),
                 }
@@ -124,6 +136,36 @@ impl<'input> Iterator for PdfLexer<'input> {
                                 }
                             }
                         }
+                    }
+                }
+            }
+
+            PdfLexerMode::HexString => {
+                // FIXME once
+                // https://doc.rust-lang.org/std/iter/struct.Enumerate.html#method.next_index is
+                // stabilized
+                let head = self.chars.peek();
+                if head.is_none() {
+                    return Some(Err(PdfLexError::UnexpectedEOF));
+                }
+                let start = head.unwrap().0;
+                loop {
+                    match self.chars.peek() {
+                        None => return Some(Err(PdfLexError::UnexpectedEOF)),
+                        Some((i, b'>')) => {
+                            *mode = PdfLexerMode::Base;
+                            return Some(Ok((
+                                start,
+                                Tok::HexStrContent(&self.input[start..*i]),
+                                *i,
+                            )));
+                        }
+                        Some((_, b'0'..=b'9'))
+                        | Some((_, b'a'..=b'f'))
+                        | Some((_, b'A'..=b'F')) => {
+                            self.chars.next();
+                        }
+                        Some((i, _)) => return Some(Err(PdfLexError::UnexpectedChar(*i))),
                     }
                 }
             }
