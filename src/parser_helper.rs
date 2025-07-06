@@ -166,7 +166,7 @@ pub(crate) fn handle_name_escapes(val: &[u8]) -> Option<Vec<u8>> {
                 let d1 = char_to_val(*it.next()?)?;
                 let d2 = char_to_val(*it.next()?)?;
                 out.push(d1 * 16 + d2);
-            },
+            }
             Some(c) => out.push(*c),
             None => return Some(out),
         }

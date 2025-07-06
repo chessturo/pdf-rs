@@ -115,29 +115,29 @@ impl<'input> Iterator for PdfLexer<'input> {
                                     Some((j, b'\x00')) => {
                                         return Some(Err(PdfLexError::UnexpectedChar(*j)));
                                     }
-                                    Some((_, _)) => { self.chars.next(); },
+                                    Some((_, _)) => {
+                                        self.chars.next();
+                                    }
                                 }
                             }
                         }
 
                         // Comment, consume all characters until an EOL marker
-                        Some((_, b'%')) => {
-                            loop {
-                                match self.chars.next() {
-                                    None => return None,
-                                    Some((_, b'\r')) => {
-                                        if let Some((_, b'\n')) = self.chars.peek() {
-                                            self.chars.next();
-                                        }
-                                        continue 'base;
+                        Some((_, b'%')) => loop {
+                            match self.chars.next() {
+                                None => return None,
+                                Some((_, b'\r')) => {
+                                    if let Some((_, b'\n')) = self.chars.peek() {
+                                        self.chars.next();
                                     }
-                                    Some((_, b'\n')) => {
-                                        continue 'base;
-                                    }
-                                    Some(_) => {}
+                                    continue 'base;
                                 }
+                                Some((_, b'\n')) => {
+                                    continue 'base;
+                                }
+                                Some(_) => {}
                             }
-                        }
+                        },
 
                         // Skip whitespace in base mode
                         Some((_, b'\x00'))
