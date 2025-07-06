@@ -70,7 +70,7 @@ impl<'input> Iterator for PdfLexer<'input> {
                     // EOF
                     None => return None,
 
-                    // We're starting a string, switch to string mode.
+                    // We're starting a raw string, switch to its mode.
                     Some((i, b'(')) => {
                         *mode = PdfLexerMode::RawString;
                         return Some(Ok((i, Tok::RawStrDelimOpen, i + 1)));
@@ -79,6 +79,7 @@ impl<'input> Iterator for PdfLexer<'input> {
                         return Some(Ok((i, Tok::RawStrDelimClose, i + 1)));
                     }
 
+                    // We're starting a hex string, switch to its mode
                     Some((i, b'<')) => {
                         *mode = PdfLexerMode::HexString;
                         return Some(Ok((i, Tok::HexStrDelimOpen, i + 1)));
