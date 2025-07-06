@@ -18,9 +18,11 @@ extern {
         RawStrDelimOpen => Tok::RawStrDelimOpen,
         RawStrDelimClose => Tok::RawStrDelimClose,
         RawStrContent => Tok::RawStrContent(<&'input [u8]>),
+
         "<" => Tok::HexStrDelimOpen,
         ">" => Tok::HexStrDelimClose,
         HexStrContent => Tok::HexStrContent(<&'input [u8]>),
+
         NameTok => Tok::Name(<&'input [u8]>),
     }
 }
