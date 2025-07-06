@@ -71,7 +71,6 @@ impl<'input> Iterator for PdfLexer<'input> {
                         *mode = PdfLexerMode::RawString;
                         return Some(Ok((i, Tok::RawStrDelimOpen, i + 1)));
                     }
-
                     Some((i, b')')) => {
                         return Some(Ok((i, Tok::RawStrDelimClose, i + 1)));
                     }
@@ -80,6 +79,7 @@ impl<'input> Iterator for PdfLexer<'input> {
                     Some((i, _)) => return Some(Err(PdfLexError::UnexpectedChar(i))),
                 }
             }
+
             PdfLexerMode::RawString => {
                 let mut depth = 1;
                 // FIXME once

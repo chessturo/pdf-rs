@@ -1,7 +1,7 @@
 //! Tests for PDF string parsing
 
 /// Tests for `RawPdfStr`
-pub mod raw {
+mod raw {
     use crate::lexer::PdfLexer;
     use crate::pdf::RawPdfStrParser;
 
@@ -38,6 +38,20 @@ pub mod raw {
     #[test]
     fn failure() {
         let inp = br"()()";
+        assert!(
+            RawPdfStrParser::new()
+                .parse(inp, PdfLexer::new(inp))
+                .is_err()
+        );
+
+        let inp = br"()\)";
+        assert!(
+            RawPdfStrParser::new()
+                .parse(inp, PdfLexer::new(inp))
+                .is_err()
+        );
+
+        let inp = br"(\\\)";
         assert!(
             RawPdfStrParser::new()
                 .parse(inp, PdfLexer::new(inp))
