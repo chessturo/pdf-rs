@@ -4,11 +4,26 @@ use crate::parser_helper::*;
 
 grammar<'input>(input: &'input [u8]);
 
-pub RawPdfStr: Vec<u8> = RawStrDelimOpen <RawStrContent?> RawStrDelimClose =>
+////////////////////////////// !!! IMPORTANT !!! //////////////////////////////
+// Due to interesting choices made in writing the PDF spec, it generally makes
+// more sense to iterate over the token stream backwards rather than forwards.
+// For example, consider the array `[0 0 R]`. If we go token-by-token forwards,
+// we have an inevitable reduce/reduce conflict because we cannot tell whether
+// to parse the first integer as a "true" integer without more than one token
+// of lookahead to see the `R`. If we go token-by-token backwards, however,
+// this problem (and others, like difficulties with incremental updates) are
+// actually avoided. Unfortunately, this makes the grammar much harder to read
+//
+// :(
+//
+// Note that only the token *stream* is backwards. The *contents* of tokens
+// (e.g., the &[u8] slices into the input) are the right way around.
+
+pub RawPdfStr: Vec<u8> = ")" <RawStrContent?> "(" =>
     handle_raw_str_escapes(<>.unwrap_or(&[]));
 
 // TODO: Don't `.unwrap()` if there's invalid hex characters
-pub HexPdfStr: Vec<u8> = "<" <HexStrContent?> ">" => handle_hex_str(<>.unwrap_or(&[])).unwrap();
+pub HexPdfStr: Vec<u8> = ">" <HexStrContent?> "<" => handle_hex_str(<>.unwrap_or(&[])).unwrap();
 pub Name: Vec<u8> = NameTok => handle_name_escapes(<>).unwrap();
 
 pub Boolean: bool = {
@@ -25,8 +40,8 @@ extern {
     type Error = PdfLexError<'input>;
 
     enum Tok<'input> {
-        RawStrDelimOpen => Tok::RawStrDelimOpen,
-        RawStrDelimClose => Tok::RawStrDelimClose,
+        "(" => Tok::RawStrDelimOpen,
+        ")" => Tok::RawStrDelimClose,
         RawStrContent => Tok::RawStrContent(<&'input [u8]>),
 
         "<" => Tok::HexStrDelimOpen,

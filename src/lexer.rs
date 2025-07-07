@@ -26,8 +26,7 @@ pub(crate) enum Tok<'input> {
 }
 
 #[derive(Clone, Copy)]
-pub(crate) enum PdfLexerMode {
-    /// The base mode; in the top-level structure of the PDF.
+enum PdfLexerMode {
     Base,
     RawString,
     HexString,
@@ -60,19 +59,18 @@ impl Display for PdfLexError<'_> {
     }
 }
 
-pub(crate) struct PdfLexer<'input> {
+struct PdfLexerForwards<'input> {
     chars: Peekable<Enumerate<Iter<'input, u8>>>,
     input: &'input [u8],
-    /// The current lexer mode. `pub(crate)` so the parser can reach in and mess with it if needed.
-    pub(crate) mode: Rc<RefCell<PdfLexerMode>>,
+    mode: PdfLexerMode,
 }
 
-impl<'input> PdfLexer<'input> {
+impl<'input> PdfLexerForwards<'input> {
     pub fn new(input: &'input [u8]) -> Self {
         Self {
             chars: input.iter().enumerate().peekable(),
             input,
-            mode: Rc::new(RefCell::new(PdfLexerMode::Base)),
+            mode: PdfLexerMode::Base,
         }
     }
 }
@@ -81,11 +79,11 @@ impl<'input> PdfLexer<'input> {
 static KEYWORD_LOOKAHEAD: usize = 30;
 
 pub(crate) type Spanned<Tok, Loc, Error> = Result<(Loc, Tok, Loc), Error>;
-impl<'input> Iterator for PdfLexer<'input> {
+impl<'input> Iterator for PdfLexerForwards<'input> {
     type Item = Spanned<Tok<'input>, usize, PdfLexError<'input>>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match { *self.mode.borrow() } {
+        match self.mode {
             PdfLexerMode::Base => {
                 'base: loop {
                     match self.chars.next() {
@@ -94,7 +92,7 @@ impl<'input> Iterator for PdfLexer<'input> {
 
                         // We're starting a raw string, switch to its mode.
                         Some((i, b'(')) => {
-                            self.mode.replace(PdfLexerMode::RawString);
+                            self.mode = PdfLexerMode::RawString;
                             return Some(Ok((i, Tok::RawStrDelimOpen, i + 1)));
                         }
                         Some((i, b')')) => {
@@ -103,7 +101,7 @@ impl<'input> Iterator for PdfLexer<'input> {
 
                         // We're starting a hex string, switch to its mode
                         Some((i, b'<')) => {
-                            self.mode.replace(PdfLexerMode::HexString);
+                            self.mode = PdfLexerMode::HexString;
                             return Some(Ok((i, Tok::HexStrDelimOpen, i + 1)));
                         }
                         Some((i, b'>')) => {
@@ -157,7 +155,7 @@ impl<'input> Iterator for PdfLexer<'input> {
     }
 }
 
-impl PdfLexer<'_> {
+impl PdfLexerForwards<'_> {
     fn lex_raw_string(&mut self) -> Option<<Self as Iterator>::Item> {
         let mut depth = 1;
         // FIXME once
@@ -165,17 +163,23 @@ impl PdfLexer<'_> {
         // stabilized
         let head = self.chars.peek();
         if head.is_none() {
-            return Some(Err(PdfLexError::UnexpectedEOF));
+            return None;
         }
         let start = head.unwrap().0;
         loop {
             match self.chars.peek() {
-                None => return Some(Err(PdfLexError::UnexpectedEOF)),
+                None => {
+                    return Some(Ok((
+                        start,
+                        Tok::RawStrContent(&self.input[start..]),
+                        self.input.len(),
+                    )));
+                }
                 Some((i, c)) => {
                     match **c {
                         b')' => {
                             if depth == 1 {
-                                self.mode.replace(PdfLexerMode::Base);
+                                self.mode = PdfLexerMode::Base;
                                 return Some(Ok((
                                     start,
                                     Tok::RawStrContent(&self.input[start..*i]),
@@ -219,7 +223,7 @@ impl PdfLexer<'_> {
             match self.chars.peek() {
                 None => return Some(Err(PdfLexError::UnexpectedEOF)),
                 Some((i, b'>')) => {
-                    self.mode.replace(PdfLexerMode::Base);
+                    self.mode = PdfLexerMode::Base;
                     return Some(Ok((start, Tok::HexStrContent(&self.input[start..*i]), *i)));
                 }
                 Some((_, b'0'..=b'9')) | Some((_, b'a'..=b'f')) | Some((_, b'A'..=b'F')) => {
@@ -323,5 +327,25 @@ impl PdfLexer<'_> {
                 }
             }
         }
+    }
+}
+
+pub(crate) struct PdfLexer<'input> {
+    toks: Vec<(usize, Tok<'input>, usize)>,
+}
+
+impl<'input> PdfLexer<'input> {
+    pub(crate) fn new(input: &'input [u8]) -> Result<PdfLexer<'input>, PdfLexError> {
+        let lex = PdfLexerForwards::new(input);
+        let toks = lex.collect::<Result<Vec<_>, PdfLexError>>()?;
+        Ok(Self { toks })
+    }
+}
+
+impl<'input> Iterator for PdfLexer<'input> {
+    type Item = Spanned<Tok<'input>, usize, PdfLexError<'input>>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        Some(Ok(self.toks.pop()?))
     }
 }
