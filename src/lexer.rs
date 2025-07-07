@@ -20,6 +20,8 @@ pub(crate) enum Tok<'input> {
     True,
     False,
 
+    Number(&'input [u8]),
+
     UnknownTok(&'input [u8]),
 }
 
@@ -138,6 +140,37 @@ impl<'input> Iterator for PdfLexer<'input> {
                                 }
                             }
                         }
+
+                        Some((i, b'0'..=b'9'))
+                        | Some((i, b'.'))
+                        | Some((i, b'+'))
+                        | Some((i, b'-')) => loop {
+                            match self.chars.peek() {
+                                Some((_, b'0'..=b'9')) | Some((_, b'.')) => {
+                                    self.chars.next();
+                                }
+                                Some((j, b'\x00'))
+                                | Some((j, b'\t'))
+                                | Some((j, b'\n'))
+                                | Some((j, b'\x0C' /* FORM FEED */))
+                                | Some((j, b'\r'))
+                                | Some((j, b' ')) => {
+                                    return Some(Ok((i, Tok::Number(&self.input[i..*j]), *j)));
+                                }
+                                // An EOF could end the number as well
+                                None => {
+                                    return Some(Ok((
+                                        i,
+                                        Tok::Number(&self.input[i..]),
+                                        self.input.len(),
+                                    )));
+                                }
+                                // Some gunk in the middle of our number
+                                Some((j, _)) => {
+                                    return Some(Err(PdfLexError::UnexpectedChar(*j)));
+                                }
+                            }
+                        },
 
                         // Comment, consume all characters until an EOL marker
                         Some((_, b'%')) => loop {

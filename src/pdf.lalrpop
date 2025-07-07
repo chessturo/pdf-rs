@@ -1,5 +1,6 @@
 grammar<'input>(input: &'input [u8]);
 
+use crate::ast::object;
 use crate::lexer::*;
 use crate::parser_helper::*;
 
@@ -13,6 +14,10 @@ pub Name: Vec<u8> = NameTok => handle_name_escapes(<>).unwrap();
 pub Boolean: bool = {
     "true" => true,
     "false" => false,
+}
+
+pub Number: object::Number = {
+    <NumberTok> => handle_number(<>),
 }
 
 extern {
@@ -32,6 +37,8 @@ extern {
 
         "true" => Tok::True,
         "false" => Tok::False,
+
+        NumberTok => Tok::Number(<&'input [u8]>),
 
         UnknownTok => Tok::UnknownTok(<&'input [u8]>),
     }

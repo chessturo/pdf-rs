@@ -1,5 +1,7 @@
 //! Helper functions called from the parser
 
+use crate::ast;
+
 pub(crate) fn handle_raw_str_escapes(val: &[u8]) -> Vec<u8> {
     let mut it = val.iter().peekable();
     let mut out: Vec<u8> = Vec::with_capacity(val.len());
@@ -171,4 +173,34 @@ pub(crate) fn handle_name_escapes(val: &[u8]) -> Option<Vec<u8>> {
             None => return Some(out),
         }
     }
+}
+
+pub(crate) fn handle_number(mut num: &[u8]) -> ast::object::Number {
+    use ast::object::Number;
+
+    let mut is_negative = false;
+    if num[0] == b'+' {
+        num = &num[1..];
+    } else if num[0] == b'-' {
+        num = &num[1..];
+        is_negative = true;
+    }
+
+    if let Some(decimal_point) = num.iter().position(|c| *c == b'.') {
+        let val = handle_real_val(&num[..decimal_point], &num[decimal_point + 1..]).unwrap();
+        Number::Real(if is_negative { -1.0 * val } else { val })
+    } else {
+        let val = str::from_utf8(num).unwrap().parse().unwrap();
+        Number::Integer(if is_negative { -1 * val } else { val })
+    }
+}
+
+fn handle_real_val(whole: &[u8], frac: &[u8]) -> Option<f64> {
+    let whole_str = str::from_utf8(whole).ok()?;
+    let frac_str = str::from_utf8(frac).ok()?;
+    let mut owned_string = String::with_capacity(whole.len() + frac.len() + 1);
+    owned_string += whole_str;
+    owned_string += ".";
+    owned_string += frac_str;
+    owned_string.parse().ok()
 }
