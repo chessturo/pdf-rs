@@ -1,8 +1,8 @@
-grammar<'input>(input: &'input [u8]);
-
 use crate::ast::object;
 use crate::lexer::*;
 use crate::parser_helper::*;
+
+grammar<'input>(input: &'input [u8]);
 
 pub RawPdfStr: Vec<u8> = RawStrDelimOpen <RawStrContent?> RawStrDelimClose =>
     handle_raw_str_escapes(<>.unwrap_or(&[]));
