@@ -141,6 +141,7 @@ impl<'input> Iterator for PdfLexer<'input> {
                             }
                         }
 
+                        // Handle a number
                         Some((i, b'0'..=b'9'))
                         | Some((i, b'.'))
                         | Some((i, b'+'))
@@ -149,6 +150,7 @@ impl<'input> Iterator for PdfLexer<'input> {
                                 Some((_, b'0'..=b'9')) | Some((_, b'.')) => {
                                     self.chars.next();
                                 }
+                                // End of the number
                                 Some((j, b'\x00'))
                                 | Some((j, b'\t'))
                                 | Some((j, b'\n'))
