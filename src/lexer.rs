@@ -1,9 +1,7 @@
 //! Lexer for parsing PDF files
 
-use std::cell::RefCell;
 use std::fmt::Display;
 use std::iter::{Enumerate, Peekable};
-use std::rc::Rc;
 use std::slice::Iter;
 
 #[derive(Copy, Clone, Debug)]
@@ -335,7 +333,7 @@ pub(crate) struct PdfLexer<'input> {
 }
 
 impl<'input> PdfLexer<'input> {
-    pub(crate) fn new(input: &'input [u8]) -> Result<PdfLexer<'input>, PdfLexError> {
+    pub(crate) fn new(input: &'input [u8]) -> Result<PdfLexer<'input>, PdfLexError<'input>> {
         let lex = PdfLexerForwards::new(input);
         let toks = lex.collect::<Result<Vec<_>, PdfLexError>>()?;
         Ok(Self { toks })
