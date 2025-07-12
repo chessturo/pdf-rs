@@ -8,7 +8,7 @@ grammar<'input>(input: &'input [u8]);
 // Due to interesting choices made in writing the PDF spec, it generally makes
 // more sense to iterate over the token stream backwards rather than forwards.
 // For example, consider the array `[0 0 R]`. If we go token-by-token forwards,
-// we have an inevitable reduce/reduce conflict because we cannot tell whether
+// we have an inevitable shift/reduce conflict because we cannot tell whether
 // to parse the first integer as a "true" integer without more than one token
 // of lookahead to see the `R`. If we go token-by-token backwards, however,
 // this problem (and others, like difficulties with incremental updates) are
